@@ -504,6 +504,7 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       if(!sort && that.sortKey){
         return that.sort(that.sortKey.field, that.sortKey.sort, true);
       }
+      var mergeRecord = {}
       layui.each(data, function(i1, item1){
         var tds = [], tds_fixed = [], tds_fixed_r = []
         ,numbers = i1 + options.limit*(curr - 1) + 1; //序号
@@ -519,9 +520,30 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
           
           if(content === undefined || content === null) content = '';
           if(item3.colspan > 1) return;
-          
+
+            if (item3.merge) {
+                var mergeField = [field];
+                if (item3.merge != true) {
+                    if (typeof item3.merge == 'string') {
+                        mergeField = [item3.merge]
+                    } else {
+                        mergeField = item3.merge
+                    }
+                }
+                if (i1 != 0) {
+                    if (isMerge(data, item1, i1, mergeField)) {
+                        mergeRecord[i3][mergeRecord[i3].length-1]['mergeCount'] = mergeRecord[i3][mergeRecord[i3].length-1]['mergeCount'] + 1;
+                        return true;
+                    } else {
+                        mergeRecord[i3].push({index: i1, mergeCount: 1});
+                    }
+                } else {
+                    mergeRecord[i3] = [{index: 0, mergeCount: 1}]
+                }
+            }
+
           //td内容
-          var td = ['<td data-field="'+ field +'" '+ function(){
+          var td = ['<td data-index="'+i3+'" data-field="'+ field +'" '+ function(){
             var attr = [];
             if(item3.edit) attr.push('data-edit="'+ item3.edit +'"'); //是否允许单元格编辑
             if(item3.align) attr.push('align="'+ item3.align +'"'); //对齐方式
@@ -586,6 +608,18 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       that.layFixLeft.find('tbody').html(trs_fixed.join(''));
       that.layFixRight.find('tbody').html(trs_fixed_r.join(''));
 
+      for (var index in mergeRecord) {
+          that.layMain.find('tbody td[data-index="'+index+'"]').each(function (i) {
+              $(this).attr('rowspan', mergeRecord[index][i].mergeCount);
+          });
+          that.layFixLeft.find('tbody td[data-index="'+index+'"]').each(function (i) {
+              $(this).attr('rowspan', mergeRecord[index][i].mergeCount);
+          });
+          that.layFixRight.find('tbody td[data-index="'+index+'"]').each(function (i) {
+              $(this).attr('rowspan', mergeRecord[index][i].mergeCount);
+          })
+      }
+
       that.renderForm();
       that.syncCheckAll();
       that.haveInit ? that.scrollPatch() : setTimeout(function(){
@@ -593,6 +627,14 @@ layui.define(['laytpl', 'laypage', 'layer', 'form'], function(exports){
       }, 50);
       that.haveInit = true;
       layer.close(that.tipsIndex);
+    },
+    isMerge = function(data, item1, i1, mergeField) {
+        for (var i=0; i<mergeField.length; i++) {
+            if (data[i1-1][mergeField[i]] != item1[mergeField[i]]) {
+                return false;
+            }
+        }
+        return true;
     };
     
     that.key = options.id || options.index;
